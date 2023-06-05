@@ -1,0 +1,420 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  /* rem refers to this html selector font size else browser default */
+  font-size: 16px;
+  /* font family here */
+}
+
+body {
+  margin: 0;
+  padding: 0;
+
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ------------------------------------------------------
+    HERO IMAGE //HOMEPAGE
+----------------------------------------------------- */
+
+#nav-bar {
+  top: 0;
+  left: 0;
+  position: fixed;
+  z-index: 3;
+  width: 100%;
+}
+#nav-bar.active {
+  background: #673ab7;
+}
+
+.hero-wrap {
+  position: relative;
+  /* Use "linear-gradient" to add a darken background effect to the image (photographer.jpg). This will make the text easier to read */
+  background-image: linear-gradient(
+      rgba(103, 58, 183, 0.9),
+      rgba(103, 58, 183, 0.9),
+      rgba(0, 0, 0, 0.9)
+    ),
+    url("../public/wavelines.jpg");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  position: relative;
+  min-height: 60vh;
+}
+
+/* .hero-showcase-form { 
+ 
+} */
+/*  ----------------------------------------------------------------
+  HERO BOTTOM SVG 
+----------------------------------------------------------------*/
+.custom-bottom-svg {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  overflow: hidden;
+  line-height: 0;
+  transform: rotate(180deg);
+}
+
+.custom-bottom-svg svg {
+  position: relative;
+  display: block;
+  width: calc(106% + 1.3px);
+  height: 90px;
+  transform: rotateY(180deg);
+}
+
+.custom-bottom-svg .shape-fill {
+  fill: #ffffff;
+}
+
+/*  ----------------------------------------------------------------
+  testimonial background
+----------------------------------------------------------------*/
+.testimonial-wrapper {
+  background-image: linear-gradient(
+      rgba(244, 247, 250, 1),
+      rgba(244, 247, 250, 0.94),
+      rgba(244, 247, 250, 0.96),
+      rgba(244, 247, 250, 0.95)
+    ),
+    url("../public/testimonial.svg");
+  background-position: bottom;
+  background-repeat: no-repeat;
+  background-size: cover;
+  position: relative;
+  /* background: #f4f7fa; */
+}
+
+/*  ----------------------------------------------------------------
+  CAROUSEL//USING SWIPER 
+----------------------------------------------------------------*/
+#swiper-wrapper {
+  padding: auto;
+
+  min-height: 40vh;
+  width: 100%;
+}
+/* prevent flicker */
+.swiper-slide {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 40vh;
+  -webkit-transform: translateZ(0);
+}
+/* if slide is an image/cover/fill space */
+.swiper-slide img {
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+}
+/* //change color of arrows//these are swiper classes */
+.swiper-button-next,
+.swiper-button-prev {
+  color: white !important;
+}
+/* hide arrows */
+.swiper-button-next::after,
+.swiper-button-prev::after {
+  display: none;
+}
+
+/*  ----------------------------------------------------------------
+  ANGLED/SKEWED SECTION/DIV
+----------------------------------------------------------------*/
+.skewed-wrapper {
+  height: 350px;
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: space-between;
+  overflow: hidden;
+  background-color: #673ab7;
+}
+.skewed-block {
+  height: 350px;
+  transform: skewX(20deg);
+  position: relative;
+  left: -65px;
+  border: 0;
+  outline: 0;
+  flex: 1;
+
+  /* hide overflow //cut image along the */
+  overflow: hidden;
+}
+.skewed-block-img {
+  transform: skewX(-20deg);
+  background-image: url("../public/business-woman.jpg");
+  background-position: top;
+  background-repeat: no-repeat;
+  background-size: cover;
+  position: relative;
+  height: 100%;
+  width: 115%;
+  z-index: 1;
+}
+
+.skewed-content-block {
+  padding: 3rem;
+  color: #fff;
+  height: 100%;
+  width: 50%;
+  background-color: transparent;
+  /* display: inline-block; */
+}
+
+.footer-wrapper {
+  background-color: #242145;
+  color: #fff;
+  min-height: 50vh;
+  position: relative;
+  padding-top: 6rem;
+  margin-top: 6rem;
+}
+.footer-wrapper::before {
+  content: "";
+  position: absolute;
+  background-color: #242145;
+  right: 0;
+  left: 0;
+  top: -40px;
+  width: auto;
+  height: 75px;
+  transform: skewY(-2deg);
+}
+
+.features-container {
+}
+
+.features-card {
+}
+
+.testimonial-background {
+}
+
+.services-container {
+}
+
+.footer-widget {
+}
+.footer-bottom {
+}
+
+.listItem-active {
+  background-image: linear-gradient(
+    98deg,
+    rgb(198, 167, 254),
+    rgb(145, 85, 253) 94%
+  );
+}
+
+/* utils */
+/* .card{
+
+}
+.section{
+
+}
+.grid{
+
+}
+.widget{
+
+}
+.btn{
+
+}
+.article-title , block , sub-section
+*/
+
+/* ------------------------------------------------------
+    MODIFY STEPPER CONNECTOR
+----------------------------------------------------- */
+.MuiStepConnector-line {
+  /* border-color: rgb(242,113,33)!important; */
+  border: 0 !important;
+  border-radius: 5px;
+  height: 3px;
+  background-image: linear-gradient(
+    95deg,
+    rgb(242, 113, 33) 0%,
+    rgb(233, 64, 87) 50%,
+    rgb(138, 35, 135) 100%
+  );
+}
+
+/* ------------------------------------------------------
+    Scaling Images//to change size along with it's container
+----------------------------------------------------- */
+.image-container {
+  width: 100%;
+  height: 1000px;
+  overflow: hidden;
+}
+.image-container img {
+  max-width: 100%;
+  height: auto;
+}
+
+/**----------------------
+FILE UPLOAD
+ ---------------------*/
+.dropzone-wrapper {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  align-items: stretch;
+  width: 100%;
+}
+.dropzone {
+  border: 2px dashed #eeeeee;
+  border-radius: 2;
+  background-color: #fafafa;
+  color: #bdbdbd;
+  outline: none;
+  transition: border 0.24s ease-in-out;
+  width: 100%;
+  margin: auto;
+  text-align: center;
+  padding: 1.9rem 0 2.1rem;
+}
+
+.dropzone-content {
+  margin-bottom: 0.7rem;
+}
+
+.dropzone-upload-btn {
+  color: rgb(255, 255, 255);
+  background-color: rgb(25, 118, 210);
+  box-shadow: none;
+  outline: 0px;
+  border: 0px none;
+  margin: 0px;
+  cursor: pointer;
+  user-select: none;
+  vertical-align: middle;
+  appearance: none;
+  text-decoration: none;
+  font-family: "Roboto", "Helvetica", "Arial", sans-serif;
+  font-weight: 500;
+  font-size: 0.875rem;
+  line-height: 1.75;
+  letter-spacing: 0.02857em;
+  text-transform: uppercase;
+  min-width: 64px;
+  padding: 6px 16px;
+  border-radius: 4px;
+  transition: background-color 250ms cubic-bezier(0.4, 0, 0.2, 1) 0ms,
+    box-shadow 250ms cubic-bezier(0.4, 0, 0.2, 1) 0ms,
+    border-color 250ms cubic-bezier(0.4, 0, 0.2, 1) 0ms,
+    color 250ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;
+}
+
+.dropzone-upload-btn:hover {
+  background-color: #42a5f5;
+}
+
+.dropzone-drag-active {
+  border-color: "#2196f3";
+}
+.dropzone-close-btn {
+  color: #fff;
+  background-color: #d32f2f;
+  border-radius: 4px;
+  font-weight: 800;
+  box-shadow: none;
+  border: none;
+  outline: none;
+  padding: 0.2rem 0.4rem 0.2rem;
+}
+.dropzone-close-btn:hover {
+  background-color: #ef5350;
+}
+
+.dropzone-file-preview {
+  /* box-shadow: 0px 3px 3px -2px rgba(0,0,0,0.2),0px 3px 4px 0px rgba(0,0,0,0.14),0px 1px 8px 0px rgba(0,0,0,0.12);
+  */
+  font-family: "Roboto", "Helvetica", "Arial", sans-serif;
+  box-shadow: 0px 2px 1px -1px rgba(0, 0, 0, 0.2),
+    0px 1px 1px 0px rgba(0, 0, 0, 0.14), 0px 1px 3px 0px rgba(0, 0, 0, 0.12);
+  display: flex;
+  padding: 0.3rem 0.6rem 0.3rem;
+  margin-top: 0.6rem;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid #0dcaf0;
+  width: 100%;
+  font-size: 14px;
+}
+
+.dropzone-file-preview span {
+  font-size: 14px;
+}
+
+/* ---------------------------------------------------
+    PAGINATION
+----------------------------------------------------- */
+.pagination {
+  margin-top: 1rem;
+  margin-bottom: 2rem;
+}
+
+.pagination button {
+  margin-right: 0.5rem;
+  cursor: pointer;
+  padding: 7px 15px;
+  background-color: #fff;
+  outline: none;
+  border: 1px solid #dee2e6;
+  border-radius: 0.2rem;
+  transition: all 0.24s ease-in-out;
+}
+
+.pagination button:hover {
+  background-color: #673ab7;
+  border: 1px solid #673ab7;
+  color: #fff;
+}
+
+.pagination button:disabled {
+  /* cursor: not-allowed; */
+  cursor: text;
+  color: #fff;
+  cursor: text;
+  background-color: #673ab7;
+  border: 1px solid #673ab7;
+}
+
+/* ---------------------------------------------------
+  RESPONSIVENESS //MEDIA QUERIES
+----------------------------------------------------- */
+/* bootstrap breakpoints
+  xs: 0/<576px,
+  sm: ≥576px,
+  md: ≥768px,
+  lg: ≥992px,
+  xl: ≥1200px,
+  xxl:≥1400px */
+@media (max-width: 992px) {
+  #sidebar {
+    margin-left: -250px;
+  }
+  #sidebar.active {
+    margin-left: 0;
+  }
+  .custom-bottom-svg {
+    display: none;
+  }
+  .dropzone-file-preview{
+    flex-direction: column;
+  }
+}
