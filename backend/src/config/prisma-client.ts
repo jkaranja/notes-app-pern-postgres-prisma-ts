@@ -3,8 +3,8 @@ import { PrismaClient } from "@prisma/client";
 
 
 const prisma = new PrismaClient({
-  log: ["query", "info", "warn", "error"],
-});
+  //log: ["query", "info", "warn", "error"],
+}); 
 
 //Prisma supports two types of logging:
 // Logging to stdout (default) //above in prisma client instance

@@ -18,11 +18,12 @@ import rootRoutes from "./routes/rootRoutes";
 
 //load & run passport middleware(initialize + strategies) for Oauth2/SSO
 import "./config/passport";
+import prisma from "./config/prisma-client";
 
 const app = express();
 
 const PORT = process.env.PORT || 4000; //avoid 5000//used by other services eg linkedin passport
-connectDB();
+//connectDB();
 
 //log req events
 app.use(logger);
@@ -49,6 +50,19 @@ app.use("/", express.static(path.join(__dirname, "public")));
 /*-----------------------------------------
  * ROUTES
  ----------------------------------------*/
+
+app.get("/test/:id", async (req, res) => {
+
+
+ const user = await prisma.user.findUnique({
+   where: {
+     id: req.params.id,
+   },
+ });
+ 
+ res.json(user);
+
+})
 
 app.use("/api/auth", authRoutes);
 
@@ -84,18 +98,6 @@ app.all("*", (req, res) => {
 app.use(errorHandler);
 
 /*-----------------------------------------
- * RUN SERVER AND OPEN CONNECTION TO DB
+ * RUN SERVER 
  ---------------------------*-------------*/
-//run server only when db is connected
-mongoose.connection.once("open", () => {
-  console.log("Connected to MongoDB");
-  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-});
-//log db connection errors
-mongoose.connection.on("error", (err) => {
-  console.log(err);
-  logEvents(
-    `${err.no}: ${err.code}\t${err.syscall}\t${err.hostname}`,
-    "mongoErrLog.log"
-  );
-});
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

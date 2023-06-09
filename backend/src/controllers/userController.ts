@@ -1,16 +1,15 @@
-import User from "../models/userModel";
-import fs from "fs";
-
 import crypto from "crypto";
-import jwt, { JwtPayload, VerifyErrors } from "jsonwebtoken";
+import jwt from "jsonwebtoken";
 
 import bcrypt from "bcrypt";
-import sendEmail from "../utils/sendEmail";
 import { removeImage } from "../utils/cloudnary";
+import sendEmail from "../utils/sendEmail";
 
-import { Buffer } from "node:buffer";
 import { RequestHandler } from "express";
 import mongoose from "mongoose";
+import prisma from "../config/prisma-client";
+import isValidUUID from "../utils/uuid";
+import { Role } from "@prisma/client";
 
 /*-----------------------------------------------------------
  * GET USER
@@ -33,7 +32,7 @@ const getUser: RequestHandler = async (req, res) => {
   }
 
   res.json({
-    id: user._id,
+    id: user.id,
     username: user.username,
     email: user.email,
     profileUrl: user.profileUrl,
@@ -72,14 +71,17 @@ const registerUser: RequestHandler<
     return res.status(400).json({ message: "All fields are required" });
   }
 
-  // Check for duplicate username || email
-  //collation strength 2 makes username or email sent by user case insensitive i.e it should
+  // Check for duplicate email
   //match both lowercase and uppercase to ensure no same email is added in diff cases
-  const duplicate = await User.findOne({ email })
-
-    .collation({ locale: "en", strength: 2 })
-    .lean()
-    .exec();
+  const duplicate = await prisma.user.findFirst({
+    where: {
+      email: {
+        //if no mode, just pass email: "x@email"
+        equals: email,
+        mode: "insensitive", //collation//for pg and mongoDB only//others(mysql etc) use case-insensitive collation by default
+      },
+    },
+  });
 
   if (duplicate) {
     return res
@@ -116,16 +118,82 @@ const registerUser: RequestHandler<
   sendEmail(emailOptions);
 
   ///save user
-  const userObject = {
+  const userData = {
     username,
     password: hashedPwd,
     email,
     verifyEmailToken,
+    roles: [Role.ADMIN]//import generated enum by prisma client, for types use Prisma.Type namespace
   };
 
-  const user = new User(userObject); //or use .create(obj)
-  // Create and store new user
-  const created = await user.save();
+  //non-nested write/no relation
+  //returns created record or null
+  // const created = await prisma.user.create({
+  //   data: userData,
+  // select: {
+  //   email: true,
+  //   ...
+  // }//add select or leave it to return all fields
+  // });
+
+  //saving a 1-1 relation
+  // Nested writes:
+  // A nested write allows you to write relational data to your database in a single transaction.
+  //Nested writes provides transactional guarantees for creating, updating or deleting data across multiple tables in a single Prisma Client query. If any part of the query fails (for example, creating a user succeeds but creating posts fails), Prisma Client rolls back all changes.
+  //A write query with relation, select(user fields + relation/profile fields)
+  const created = await prisma.user.create({
+    data: {
+      ...userData,
+      //Atomic number operations, inc + dec
+      //eg
+      //rating: { increment: 1 }, //adds n to current rating
+      // rating: { increment: 1 }, //Subtracts n from current rating
+      // rating: { multiply: 1 }, //multiply current by n
+      // rating: { Divide: 1 }, //Divides current by n to
+      // rating: { set: 1 }, //Sets the current field value. Identical to { myField : n }.
+
+      //relation
+      profile: {
+        create: {
+          bio: "This is a sample bio",
+          gender: "Male",
+          address: "xx-4th street",
+        }, //pass an array instead to create multiple eg  for 1-n
+      },
+    },
+
+    //Select Fields: #Include relations and select relation fields
+    //relations are not returned by default->either use nested select or include(with select inside).
+    //1.using nested select(to include relation.)//disAdv: must also pass user fields to return else none
+    select: {
+      id: true,
+      username: true,
+      email: true,
+      profileUrl: true,
+      profile: {
+        select: {
+          gender: true,
+          bio: true,
+          address: true,
+        },
+      },
+    },
+    //2.using select within an include(disAdv: returns all user fields, can't use both select and include without nesting i.e cannot use select and include on the same level )
+    // Returns all user fields
+    // include: {
+    //   profile: {
+    //     select: {
+    //       gender: true,
+    //       bio: true,
+    //       address: true,
+    //     },
+    //   },
+    // },
+    //3. include profile without selecting any field->all user fields & all profile fields.Note: can't use both select and include on the same  to then select user fields
+    // include: {
+    //   profile: true,
+    // },
+  });
 
   if (!created) {
     return res.status(400).json({ message: "Check details and try again" });
@@ -133,7 +201,7 @@ const registerUser: RequestHandler<
 
   //create a token that will be sent back as cookie//for resending email
   const resendEmailToken = jwt.sign(
-    { id: created._id, email },
+    { id: created.id, email },
     process.env.RESEND_EMAIL_TOKEN_SECRET,
     { expiresIn: "15m" } //expires in 15 min
   );
@@ -176,10 +244,14 @@ const resendVerifyEmail: RequestHandler = async (req, res) => {
       if (err) {
         return res.status(400).json({ message: "Email could not be sent" });
       }
+      const { id } = <{ id: string }>decoded;
 
-      const foundUser = await User.findById(
-        (<{ id: string }>decoded).id
-      ).exec();
+      // By ID (field must be @id or @unique)
+      const foundUser = await prisma.user.findUnique({
+        where: {
+          id,
+        },
+      });
 
       if (!foundUser) {
         return res.status(400).json({ message: "Email could not be sent" });
@@ -211,18 +283,16 @@ const resendVerifyEmail: RequestHandler = async (req, res) => {
       sendEmail(emailOptions);
 
       //update verify token
-      foundUser.verifyEmailToken = verifyEmailToken;
-      await foundUser.save();
+      await prisma.user.update({
+        where: { id },
+        data: { verifyEmailToken }, //not data object must have at least one property to update. If value of the field is undefined, it is the same as not including it i.e it won;t be changed
+      });
 
       res.json({ message: "Email sent" });
     }
   );
 };
 
-
-https: medium.com/codex/how-to-upload-images-to-cloudinary-using-nestjs-9f496460e8d7
-//try to upload image to cloudnary as a binary stream
-//have multer multipart file but don't save locally
 /*-----------------------------------------------------------
  * UPDATE/PATCH
  ------------------------------------------------------------*/
@@ -235,7 +305,7 @@ https: medium.com/codex/how-to-upload-images-to-cloudinary-using-nestjs-9f496460
  * @access - Private
  *
  */
- const updateUser: RequestHandler = async (req, res) => {
+const updateUser: RequestHandler = async (req, res) => {
   const { username, email, phoneNumber, password, newPassword } = req.body;
 
   const profileUrl = req.file?.path;
@@ -243,14 +313,18 @@ https: medium.com/codex/how-to-upload-images-to-cloudinary-using-nestjs-9f496460
 
   const { id } = req.params;
 
-  //check if id is a valid ObjectId//ObjectIds is constructed only from 24 hex character strings
-  if (!mongoose.isValidObjectId(id)) {
+  //check if id is a valid uuid
+  if (!isValidUUID(id)) {
     await removeImage(publicId);
     return res.status(400).json({ message: "User not found" });
   }
 
   // Does the user exist to update//exists since we are already here
-  const user = await User.findById(id).exec();
+  const user = await prisma.user.findUnique({
+    where: {
+      id,
+    },
+  });
 
   if (!user) {
     await removeImage(publicId);
@@ -284,10 +358,14 @@ https: medium.com/codex/how-to-upload-images-to-cloudinary-using-nestjs-9f496460
       .digest("hex");
 
     // Check for duplicate email//case insensitive
-    const duplicate = await User.findOne({ email })
-      .collation({ locale: "en", strength: 2 })
-      .lean()
-      .exec();
+    const duplicate = await prisma.user.findFirst({
+      where: {
+        email: {
+          equals: email,
+          mode: "insensitive",
+        },
+      },
+    });
 
     // Allow only updates to the original user
     if (duplicate) {
@@ -323,7 +401,51 @@ https: medium.com/codex/how-to-upload-images-to-cloudinary-using-nestjs-9f496460
     }
   }
 
-  const updatedUser = await user.save();
+  //updating a 1-1 relationship
+  //note that the rules for onUpdate in Profile model will also affect what happens to profile record. We are using cascade, so if id of User is updated, so will the userId/foreign key/relation scalar field
+  const updatedUser = await prisma.user.update({
+    where: {
+      id,
+    },
+    data: {
+      ...user, //user won't contain a relation
+
+      profile: {
+        //option 1
+        update: { bio: "This is a new sample bio" },
+        //or make update an upsert
+        //option 2
+        // upsert: {
+        //   //ensure you include all required fields in create object below
+        //   create: { bio: "Hello World", gender: "Male", address: "xx-y-z-20" },
+        //   update: { bio: "Hello World" },
+        // },
+        //option 3
+        //can also update user by deleting their profile
+        // delete: true,
+      },
+    },
+    //or use nested select
+    select: {
+      id: true,
+      username: true,
+      email: true,
+      profileUrl: true,
+      phoneNumber: true,
+      newEmail: true,
+      profile: {
+        select: {
+          bio: true,
+          gender: true,
+          address: true,
+        },
+      },
+    },
+    ////or just add to return all user & profile fields
+    // include: {
+    //   profile: true,
+    // },
+  });
 
   if (!updatedUser) {
     await removeImage(publicId);
@@ -333,14 +455,7 @@ https: medium.com/codex/how-to-upload-images-to-cloudinary-using-nestjs-9f496460
   }
 
   //res =  updated user details
-  return res.json({
-    id: updatedUser._id,
-    username: updatedUser.username,
-    email: updatedUser.email,
-    profileUrl: updatedUser.profileUrl,
-    phoneNumber: updatedUser.phoneNumber,
-    newEmail: updatedUser.newEmail,
-  });
+  return res.json(updatedUser);
 };
 
 /**
@@ -352,22 +467,46 @@ https: medium.com/codex/how-to-upload-images-to-cloudinary-using-nestjs-9f496460
 const deleteUser: RequestHandler = async (req, res) => {
   const { id } = req.params;
 
-  //check if id is a valid ObjectId//ObjectIds is constructed only from 24 hex character strings
-  // if (!id.match(/^[0-9a-fA-F]{24}$/)) {
-  //   return res.status(400).json({ message: "User not found" });
-  // }
-  if (!mongoose.isValidObjectId(id)) {
+  //check if id is a valid uuid
+  if (!isValidUUID(id)) {
     return res.status(400).json({ message: "User not found" });
   }
 
   // Does the user exist to delete?
-  const user = await User.findById(id).exec();
+  const user = await prisma.user.findUnique({
+    where: {
+      id,
+    },
+  });
 
   if (!user) {
     return res.status(400).json({ message: "User not found" });
   }
 
-  await user.deleteOne();
+  //deleting 1-1 relation->this will follow the onDelete, onUpdate rules described in the Profile model
+
+  // We are using cascade, so if we delete user, so will the profile
+  //if we used Restrict, we wouldn't be able to delete user if profile exists
+  //returns deleted doc or throws an exception if record does not exist.
+  
+  await prisma.user.delete({
+    where: { id },
+    //can also select returned fields
+    select: {
+      email: true,
+      username: true,
+    },
+  });
+
+  //to delete the profile without deleting user,
+  // const user = await prisma.user.update({
+  //   where: { email: "alice@prisma.io" },
+  //   data: {
+  //     profile: {
+  //       delete: true,
+  //     },
+  //   },
+  // });
 
   //clear refresh token cookie
   res.clearCookie("jwt", { httpOnly: true, sameSite: "none", secure: true });

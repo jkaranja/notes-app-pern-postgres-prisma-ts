@@ -1,6 +1,7 @@
 import { RequestHandler } from "express";
 import jwt from "jsonwebtoken";
-import User from "../models/userModel";
+
+import prisma from "../config/prisma-client";
 
 const verifyJWT: RequestHandler = (req, res, next) => {
   const authHeader =
@@ -14,14 +15,17 @@ const verifyJWT: RequestHandler = (req, res, next) => {
   }
 
   const token = authHeader.split(" ")[1];
-   //token exists but has expired//return 401 so req can be retried
+  //token exists but has expired//return 401 so req can be retried
   jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, async (err, decoded) => {
     if (err) return res.status(401).json({ message: "Unauthorized" });
 
-    const user = await User.findById((<{ id: string }>decoded).id)
-      .select("-password")
-      .lean()
-      .exec();
+    const { id } = <{ id: string }>decoded;
+
+    const user = await prisma.user.findUnique({
+      where: {
+        id,
+      },
+    });
 
     if (!user) {
       return res.status(403).json({

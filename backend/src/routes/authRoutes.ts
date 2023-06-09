@@ -104,12 +104,12 @@ router.get(
 
 router.route("/refresh").get(authController.refresh);
 
-router.route("/verify/:verifyToken").post(authController.verifyEmail);
+router.route("/verify/:verifyToken").patch(authController.verifyEmail);
 
 
-router.route("/forgot").post(requestLimiter, authController.forgotPassword);
+router.route("/forgot").patch(requestLimiter, authController.forgotPassword);
 
-router.route("/reset/:resetToken").post(authController.resetPassword);
+router.route("/reset/:resetToken").patch(authController.resetPassword);
 
 router.route("/logout").post(authController.logout);
 

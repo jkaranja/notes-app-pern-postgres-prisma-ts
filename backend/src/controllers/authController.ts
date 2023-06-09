@@ -1,10 +1,11 @@
-import User from "../models/userModel";
 import bcrypt from "bcrypt";
 import jwt, { JwtPayload, VerifyErrors } from "jsonwebtoken";
 import crypto from "crypto";
 import sendEmail from "../utils/sendEmail";
 import { RequestHandler } from "express";
 import mongoose from "mongoose";
+import prisma from "../config/prisma-client";
+import User from "../models/userModel";
 
 //HOW IT WILL WORK
 //we send refresh token as cookie that can't be read by js//it will be used to send a new access token if it has expired
@@ -38,7 +39,11 @@ const login: RequestHandler<unknown, unknown, LoginBody, unknown> = async (
     return res.status(400).json({ message: "All fields are required" });
   }
 
-  const foundUser = await User.findOne({ email }).exec();
+  const foundUser = await prisma.user.findFirst({
+    where: {
+      email,
+    },
+  });
 
   if (!foundUser) {
     return res.status(400).json({ message: "Wrong email or password" });
@@ -58,15 +63,15 @@ const login: RequestHandler<unknown, unknown, LoginBody, unknown> = async (
   //sign access token//payload = user id
   const accessToken = jwt.sign(
     {
-      id: foundUser._id,
+      id: foundUser.id,
     },
     process.env.ACCESS_TOKEN_SECRET,
-    { expiresIn: "35m" } //expires in 35min//change later to 15
+    { expiresIn: "1d" } //expires in 1d
   );
 
   //sign refresh token
   const refreshToken = jwt.sign(
-    { id: foundUser._id },
+    { id: foundUser.id },
     process.env.REFRESH_TOKEN_SECRET,
     { expiresIn: "31d" } //expires in 31 days
   );
@@ -97,11 +102,8 @@ const oauthSuccess: RequestHandler = (req, res) => {
   //only need this when using passport that defines type for req.user as User which empty
   //somehow, this req from passport above is being intercepted by passport and overriding our req.user type declared using module argumentation
   //for other req objects, our User in declare is able to override passport empty User interface
-  interface User {
-    _id: mongoose.Types.ObjectId;
-  }
 
-  const { _id: id } = req.user as User;
+  const { id } = req.user!;
 
   const accessToken = jwt.sign({ id }, process.env.ACCESS_TOKEN_SECRET, {
     expiresIn: "15m",
@@ -136,7 +138,7 @@ interface VerifyEmailParams {
 
 /**
  * @desc - verify
- * @route - POST /auth/verify/:verifyToken
+ * @route - PATCH /auth/verify/:verifyToken
  * @access - Public
  */
 
@@ -154,8 +156,10 @@ const verifyEmail: RequestHandler<
     .update(verifyToken)
     .digest("hex");
 
-  const user = await User.findOne({
-    verifyEmailToken,
+  const user = await prisma.user.findFirst({
+    where: {
+      verifyEmailToken,
+    },
   });
 
   if (!user) {
@@ -174,7 +178,17 @@ const verifyEmail: RequestHandler<
     user.newEmail = ""; //clear new email field
   }
 
-  await user.save();
+  //note: currently, type definition(UserWhereUniqueInput) for update's 'where' only includes unique fields marked with @unique or @id. It makes sense since non-unique fields can contain duplicate values in table & you would use updateMany in such a case.
+  //sol1: mark field as @unique->Rec
+  //sol2: use updateMany if updating many fields, type: UserWhereInput, that allows you to filter using any field(unique and non-unique)
+  //sol3.  fetch, get Id of fetched doc, use it to update->
+
+  //update also throws RecordNotFound exception if where doesn't match or return updated doc
+  await prisma.user.update({
+    where: { id: user.id },
+    data: user, //update the whole object
+  });
+
   return res.status(201).json({ message: "Email verified" });
 };
 
@@ -183,7 +197,7 @@ const verifyEmail: RequestHandler<
  ---------------------------------------------------------*/
 /**
  * @desc - forgot password
- * @route - POST api/auth/forgot
+ * @route - PATCH api/auth/forgot
  * @access - Public
  */
 
@@ -194,14 +208,18 @@ const forgotPassword: RequestHandler = async (req, res) => {
     return res.status(400).json({ message: "Email required" });
   }
 
-  const user = await User.findOne({ email }).exec();
+  const user = await prisma.user.findFirst({
+    where: {
+      email,
+    },
+  });
 
   if (!user) {
     return res.status(400).json({ message: "Email could not be sent" });
   }
 
   //will give as 20 characters//hex is 16 numbers 0-9 then a-f
-  const resetToken = crypto.randomBytes(20).toString("hex");
+  const resetToken = crypto.randomBytes(10).toString("hex");
 
   const resetPasswordToken = crypto
     .createHash("sha256")
@@ -210,7 +228,7 @@ const forgotPassword: RequestHandler = async (req, res) => {
 
   user.resetPasswordToken = resetPasswordToken;
 
-  user.resetPasswordTokenExpiresAt = Date.now() + 24 * 60 * 60 * 1000; //expire in 24 hrs
+  user.resetPasswordTokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); //expire in 24 hrs
 
   //send email//then use match.params.resetToken to get the token
   const emailOptions = {
@@ -230,7 +248,10 @@ const forgotPassword: RequestHandler = async (req, res) => {
     return res.status(400).json({ message: "Email could not be sent" });
   }
 
-  await user.save();
+  await prisma.user.update({
+    where: { id: user.id },
+    data: user, //update the whole object
+  });
 
   res
     .status(200)
@@ -242,7 +263,7 @@ const forgotPassword: RequestHandler = async (req, res) => {
  ---------------------------------------------------------*/
 /**
  * @desc - Reset
- * @route - POST /auth/reset/:resetToken
+ * @route - PATCH /auth/reset/:resetToken
  * @access - Public
  */
 
@@ -256,24 +277,29 @@ const resetPassword: RequestHandler = async (req, res) => {
 
   const token = crypto.createHash("sha256").update(resetToken).digest("hex");
 
-  // const user = await User.findOne({
-  //   resetPasswordToken: { token, expiresIn: { $gt: Date.now() } },
-  // });
-
-  const user = await User.findOne({
-    resetPasswordToken: token,
-    resetPasswordTokenExpiresAt: { $gt: Date.now() },
+  const user = await prisma.user.findFirst({
+    where: {
+      resetPasswordToken: token,
+    },
   });
 
-  if (!user) {
+   if (!user) {
+     return res.status(400).json({ message: "Password could not be reset" });
+   }
+   //returned expiry is a date object->check if it is older than now= expired
+  if(user.resetPasswordTokenExpiresAt!.getTime() < Date.now()){
     return res.status(400).json({ message: "Password could not be reset" });
   }
-
+  
   user.resetPasswordToken = null;
 
   user.password = await bcrypt.hash(password, 10);
 
-  await user.save();
+  await prisma.user.update({
+    where: { id: user.id },
+    data: user, //update the whole object
+  });
+
   return res.json({
     message: "Password reset successfully. Please log in",
   });
@@ -303,15 +329,20 @@ const refresh: RequestHandler = (req, res) => {
     async (err, decoded) => {
       if (err) return res.status(403).json({ message: "Forbidden" });
 
-      const foundUser = await User.findById(
-        (<{ id: string }>decoded).id
-      ).exec();
+      const { id } = <{ id: string }>decoded;
+
+      // By ID (field must be @id or @unique)
+      const foundUser = await prisma.user.findUnique({
+        where: {
+          id,
+        },
+      });
 
       if (!foundUser) return res.status(403).json({ message: "Forbidden" });
 
       const accessToken = jwt.sign(
         {
-          id: foundUser._id,
+          id: foundUser.id,
         },
         process.env.ACCESS_TOKEN_SECRET,
         { expiresIn: "15m" }

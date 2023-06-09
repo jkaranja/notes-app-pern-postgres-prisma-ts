@@ -11,7 +11,8 @@
     "client": "npm run dev --prefix ../frontend",
     "dev": "concurrently \" npm run client\" \" npm start\"",
     "migrate": "prisma migrate dev",
-    "evolve": "prisma db push"
+    "evolve": "prisma db push",
+    "generate": "prisma generate"
   },
   "keywords": [],
   "author": "",
